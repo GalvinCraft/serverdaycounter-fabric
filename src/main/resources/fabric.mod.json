@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "server-day-counter",
+	"version": "${version}",
+	"name": "Server Day Counter",
+	"description": "Shows the world's day count on servers (where it's not normally shown!)",
+	"authors": [
+		"GalvinPython",
+		"GalvinCraft"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/serverdaycounter",
+		"sources": "https://github.com/GalvinCraft/ServerDayCounter-Fabric"
+	},
+	"license": "MIT",
+	"icon": "assets/server-day-counter/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"me.imgalvin.sdc.ServerDayCounter"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
