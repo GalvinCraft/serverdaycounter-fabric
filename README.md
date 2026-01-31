@@ -19,9 +19,9 @@ Use the `/daycount` command and it'll show you the day count!
 ![Usage](https://raw.githubusercontent.com/GalvinCraft/serverdaycounter-fabric/main/.github/assets/java_WapwU09fZk.png)
 
 # Compatible Versions
-| Mod Version | Game Version(s) | Mod Version Title |
-|-------------|-----------------|-------------------|
-| 1.0.0       | 1.21 - 1.21.1   | 1.0.0+1.21        |
+All versions from 1.21 and above are supported!
+- 1.0.0 supports all 1.21.x versions
+- 1.0.1 supports 26.1 snapshots for now
 
 # Important Note
 This mod is a **server-side** mod! You are **not** required to install this mod on the client-side, unless you are using the "Open to LAN" feature to create a server on your world.
