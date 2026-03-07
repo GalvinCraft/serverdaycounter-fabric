@@ -1,12 +1,12 @@
 package me.imgalvin.sdc;
 
-import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerLevel;
 
-public class ServerDayCounterUtils {
-    private static final String MOD_ID = "sdc";
+public final class ServerDayCounterUtils {
+    public static final String DAY_COUNT_PLACEHOLDER = "%day_count%";
+
+    private static final String DEFAULT_JOIN_MESSAGE = "World day: " + DAY_COUNT_PLACEHOLDER;
+    private static final String DEFAULT_NEW_DAY_MESSAGE = "A new day has begun! Day: " + DAY_COUNT_PLACEHOLDER;
 
     // Enum for different message types
     public enum MessageType {
@@ -14,36 +14,52 @@ public class ServerDayCounterUtils {
         NEW_DAY
     }
 
-    // Data attachment to store the different strings
-    private static final AttachmentType<String> DAY_COUNT_JOIN_MESSAGE = AttachmentRegistry.<String>builder()
-            .initializer(() -> "World day: %day_count%")
-            .buildAndRegister(Identifier.of(MOD_ID, "join_message"));
+    private ServerDayCounterUtils() {
+    }
 
-    private static final AttachmentType<String> DAY_COUNT_NEW_DAY_MESSAGE = AttachmentRegistry.<String>builder()
-            .initializer(() -> "A new day has begun! Day: %day_count%")
-            .buildAndRegister(Identifier.of(MOD_ID, "new_day_message"));
+    // Set and get methods for the saved world data
+    public static boolean setMessage(String message, ServerLevel world, MessageType type) {
+        ServerDayCounterSavedData savedData = getSavedData(world);
 
-    // Set and get methods for the attachment
-    public static boolean setMessage(String message, ServerWorld world, MessageType type) {
-        if (!new ServerDayCounterUtils().isValidMessage(message)) {
+        if (message == null) {
+            savedData.clearMessage(type);
+            return true;
+        }
+
+        if (!isValidMessage(message)) {
             return false;
         }
-        switch (type) {
-            case JOIN -> world.setAttached(DAY_COUNT_JOIN_MESSAGE, message);
-            case NEW_DAY -> world.setAttached(DAY_COUNT_NEW_DAY_MESSAGE, message);
-        }
+
+        savedData.setMessage(type, message);
         return true;
     }
 
-    public static String getMessage(ServerWorld world, MessageType type) {
+    public static String getMessage(ServerLevel world, MessageType type) {
+        String message = getSavedData(world).getMessage(type);
+        return message != null ? message : getDefaultMessage(type);
+    }
+
+    public static String getOrCreateMessage(ServerLevel world, MessageType type) {
+        return getMessage(world, type);
+    }
+
+    public static String getDefaultMessage(MessageType type) {
         return switch (type) {
-            case JOIN -> world.getAttached(DAY_COUNT_JOIN_MESSAGE);
-            case NEW_DAY -> world.getAttached(DAY_COUNT_NEW_DAY_MESSAGE);
+            case JOIN -> DEFAULT_JOIN_MESSAGE;
+            case NEW_DAY -> DEFAULT_NEW_DAY_MESSAGE;
         };
     }
 
+    public static String formatMessage(String message, long dayCount) {
+        return message.replace(DAY_COUNT_PLACEHOLDER, Long.toString(dayCount));
+    }
+
+    private static ServerDayCounterSavedData getSavedData(ServerLevel world) {
+        return world.getDataStorage().computeIfAbsent(ServerDayCounterSavedData.TYPE);
+    }
+
     // Helper and validation methods
-    private boolean isValidMessage(String message) {
-        return message != null && !message.trim().isEmpty() && message.contains("%day_count%");
+    private static boolean isValidMessage(String message) {
+        return message != null && !message.trim().isEmpty() && message.contains(DAY_COUNT_PLACEHOLDER);
     }
 }
