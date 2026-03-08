@@ -37,7 +37,7 @@ public class ServerDayCounter implements ModInitializer {
 			@SuppressWarnings("resource")
 			ServerLevel world = player.level().getServer().overworld();
 
-			String template = ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.JOIN);
+			String template = ServerDayCounterUtils.getMessage(world, ServerDayCounterUtils.MessageType.JOIN);
 			player.sendSystemMessage(
 					Component.literal(ServerDayCounterUtils.formatMessage(template, dayCount)).withStyle(ChatFormatting.YELLOW),
 					false
@@ -73,7 +73,7 @@ public class ServerDayCounter implements ModInitializer {
 
 		// Check if it's a new day and send a message to all players
 		dayCount = newDayCount;
-		String template = ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.NEW_DAY);
+		String template = ServerDayCounterUtils.getMessage(world, ServerDayCounterUtils.MessageType.NEW_DAY);
 		world.getServer().getPlayerList().broadcastSystemMessage(
 				Component.literal(ServerDayCounterUtils.formatMessage(template, dayCount)).withStyle(ChatFormatting.AQUA),
 				false
@@ -82,8 +82,6 @@ public class ServerDayCounter implements ModInitializer {
 
 	private void initializeWorldState(ServerLevel world) {
 		dayCount = world.getDefaultClockTime() / 24000;
-		ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.JOIN);
-		ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.NEW_DAY);
 		initialized = true;
 	}
 }

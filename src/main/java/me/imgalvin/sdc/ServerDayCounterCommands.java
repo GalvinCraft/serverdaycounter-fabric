@@ -9,6 +9,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.permissions.Permissions;
 
 import java.util.function.LongSupplier;
 
@@ -19,13 +20,17 @@ public final class ServerDayCounterCommands {
         this.dayCountSupplier = dayCountSupplier;
     }
 
+    public boolean canManageMessages(CommandSourceStack source) {
+        return source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
+    }
+
     public void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("daycount")
                 .executes(this::showDayCount)
                 .then(Commands.literal("day")
                         .executes(this::showDayCount))
                 .then(Commands.literal("message")
-                        .requires(ServerDayCounterPermissions::canManageMessages)
+                        .requires(this::canManageMessages)
                         .then(createMessageSubcommand("join", ServerDayCounterUtils.MessageType.JOIN))
                         .then(createMessageSubcommand("new_day", ServerDayCounterUtils.MessageType.NEW_DAY))));
     }
@@ -56,7 +61,7 @@ public final class ServerDayCounterCommands {
 
         source.sendSystemMessage(createCommandFeedback(
                 getMessageLabel(type) + " template: ",
-                ServerDayCounterUtils.getOrCreateMessage(world, type)
+                ServerDayCounterUtils.getMessage(world, type)
         ));
         return 1;
     }

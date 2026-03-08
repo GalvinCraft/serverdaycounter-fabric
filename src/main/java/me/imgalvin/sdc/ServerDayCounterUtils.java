@@ -39,9 +39,6 @@ public final class ServerDayCounterUtils {
         return message != null ? message : getDefaultMessage(type);
     }
 
-    public static String getOrCreateMessage(ServerLevel world, MessageType type) {
-        return getMessage(world, type);
-    }
 
     public static String getDefaultMessage(MessageType type) {
         return switch (type) {
