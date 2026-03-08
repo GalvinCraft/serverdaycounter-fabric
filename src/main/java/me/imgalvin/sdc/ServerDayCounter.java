@@ -2,6 +2,7 @@ package me.imgalvin.sdc;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -51,9 +52,7 @@ public class ServerDayCounter implements ModInitializer {
 		});
 
 		// Register the command when the mod initializes
-		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> {
-			registerDayCountCommand(dispatcher);
-		});
+		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> registerDayCountCommand(dispatcher));
 	}
 
 	private void onServerStarted(MinecraftServer minecraftServer) {
@@ -104,38 +103,33 @@ public class ServerDayCounter implements ModInitializer {
 		// Register the command
 		dispatcher.register(Commands.literal("daycount")
 				.executes(this::showDayCount)
+				.then(Commands.literal("day")
+						.executes(this::showDayCount))
 				.then(Commands.literal("message")
-						.then(Commands.literal("join")
-								.executes(context -> showMessageTemplate(context.getSource(), ServerDayCounterUtils.MessageType.JOIN))
-								.then(Commands.literal("set")
-										.requires(ServerDayCounterPermissions::canManageMessages)
-										.then(Commands.argument("message", StringArgumentType.greedyString())
-												.executes(context -> setMessageTemplate(
-														context.getSource(),
-														ServerDayCounterUtils.MessageType.JOIN,
-														StringArgumentType.getString(context, "message")
-												))))
-								.then(Commands.literal("reset")
-										.requires(ServerDayCounterPermissions::canManageMessages)
-										.executes(context -> resetMessageTemplate(context.getSource(), ServerDayCounterUtils.MessageType.JOIN))))
-						.then(Commands.literal("new_day")
-								.executes(context -> showMessageTemplate(context.getSource(), ServerDayCounterUtils.MessageType.NEW_DAY))
-								.then(Commands.literal("set")
-										.requires(ServerDayCounterPermissions::canManageMessages)
-										.then(Commands.argument("message", StringArgumentType.greedyString())
-												.executes(context -> setMessageTemplate(
-														context.getSource(),
-														ServerDayCounterUtils.MessageType.NEW_DAY,
-														StringArgumentType.getString(context, "message")
-												))))
-								.then(Commands.literal("reset")
-										.requires(ServerDayCounterPermissions::canManageMessages)
-										.executes(context -> resetMessageTemplate(context.getSource(), ServerDayCounterUtils.MessageType.NEW_DAY))))));
+						.requires(ServerDayCounterPermissions::canManageMessages)
+						.then(createMessageSubcommand("join", ServerDayCounterUtils.MessageType.JOIN))
+						.then(createMessageSubcommand("new_day", ServerDayCounterUtils.MessageType.NEW_DAY))));
+	}
+
+	private LiteralArgumentBuilder<CommandSourceStack> createMessageSubcommand(String name, ServerDayCounterUtils.MessageType type) {
+		return Commands.literal(name)
+				.executes(context -> showMessageTemplate(context.getSource(), type))
+				.then(Commands.literal("view")
+						.executes(context -> showMessageTemplate(context.getSource(), type)))
+				.then(Commands.literal("set")
+						.then(Commands.argument("message", StringArgumentType.greedyString())
+								.executes(context -> setMessageTemplate(
+										context.getSource(),
+										type,
+										StringArgumentType.getString(context, "message")
+								))))
+				.then(Commands.literal("reset")
+						.executes(context -> resetMessageTemplate(context.getSource(), type)));
 	}
 
 	private int showDayCount(CommandContext<CommandSourceStack> context) {
 		// Send the current day count back to the player/console
-		context.getSource().sendSystemMessage(Component.literal("Current day count: " + dayCount));
+		context.getSource().sendSystemMessage(createCommandFeedback("Current day count: ", Long.toString(dayCount)));
 		return 1;
 	}
 
@@ -146,7 +140,10 @@ public class ServerDayCounter implements ModInitializer {
 			return 0;
 		}
 
-		source.sendSystemMessage(Component.literal(getMessageLabel(type) + " template: " + ServerDayCounterUtils.getOrCreateMessage(world, type)));
+		source.sendSystemMessage(createCommandFeedback(
+				getMessageLabel(type) + " template: ",
+				ServerDayCounterUtils.getOrCreateMessage(world, type)
+		));
 		return 1;
 	}
 
@@ -158,11 +155,16 @@ public class ServerDayCounter implements ModInitializer {
 		}
 
 		if (!ServerDayCounterUtils.setMessage(message, world, type)) {
-			source.sendSystemMessage(Component.literal("Message must include " + ServerDayCounterUtils.DAY_COUNT_PLACEHOLDER + "."));
+			source.sendSystemMessage(
+					Component.empty()
+							.append(Component.literal("Message must include ").withStyle(ChatFormatting.RED))
+							.append(Component.literal(ServerDayCounterUtils.DAY_COUNT_PLACEHOLDER).withStyle(ChatFormatting.YELLOW))
+							.append(Component.literal(".").withStyle(ChatFormatting.RED))
+			);
 			return 0;
 		}
 
-		source.sendSystemMessage(Component.literal(getMessageLabel(type) + " template updated: " + message));
+		source.sendSystemMessage(createCommandFeedback(getMessageLabel(type) + " template updated: ", message));
 		return 1;
 	}
 
@@ -176,7 +178,7 @@ public class ServerDayCounter implements ModInitializer {
 		String defaultMessage = ServerDayCounterUtils.getDefaultMessage(type);
 		// Clear any world-specific override so the default from ServerDayCounterUtils is used.
 		ServerDayCounterUtils.setMessage(null, world, type);
-		source.sendSystemMessage(Component.literal(getMessageLabel(type) + " template reset to default: " + defaultMessage));
+		source.sendSystemMessage(createCommandFeedback(getMessageLabel(type) + " template reset to default: ", defaultMessage));
 		return 1;
 	}
 
@@ -189,5 +191,11 @@ public class ServerDayCounter implements ModInitializer {
 			case JOIN -> "Join message";
 			case NEW_DAY -> "New day message";
 		};
+	}
+
+	private Component createCommandFeedback(String label, String value) {
+		return Component.empty()
+				.append(Component.literal(label).withStyle(ChatFormatting.GRAY))
+				.append(Component.literal(value).withStyle(ChatFormatting.YELLOW));
 	}
 }
