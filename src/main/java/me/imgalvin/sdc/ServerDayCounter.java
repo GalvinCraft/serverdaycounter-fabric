@@ -1,17 +1,11 @@
 package me.imgalvin.sdc;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -39,10 +33,9 @@ public class ServerDayCounter implements ModInitializer {
 				return;
 			}
 
+			// Suppress resource warning since we're not actually opening a new world here, just accessing the existing one.
+			@SuppressWarnings("resource")
 			ServerLevel world = player.level().getServer().overworld();
-			if (world == null) {
-				return;
-			}
 
 			String template = ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.JOIN);
 			player.sendSystemMessage(
@@ -52,15 +45,13 @@ public class ServerDayCounter implements ModInitializer {
 		});
 
 		// Register the command when the mod initializes
-		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> registerDayCountCommand(dispatcher));
+		ServerDayCounterCommands commands = new ServerDayCounterCommands(() -> dayCount);
+		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> commands.register(dispatcher));
 	}
 
 	private void onServerStarted(MinecraftServer minecraftServer) {
 		// Load the current day count and any stored message templates on startup
 		ServerLevel world = minecraftServer.overworld();
-		if (world == null) {
-			return;
-		}
 
 		initializeWorldState(world);
 	}
@@ -68,9 +59,6 @@ public class ServerDayCounter implements ModInitializer {
 	private void onWorldTick(MinecraftServer minecraftServer) {
 		// Get world
 		ServerLevel world = minecraftServer.overworld();
-		if (world == null) {
-			return;
-		}
 
 		// Fallback if startup happened before the overworld was ready
 		if (!initialized) {
@@ -97,105 +85,5 @@ public class ServerDayCounter implements ModInitializer {
 		ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.JOIN);
 		ServerDayCounterUtils.getOrCreateMessage(world, ServerDayCounterUtils.MessageType.NEW_DAY);
 		initialized = true;
-	}
-
-	private void registerDayCountCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
-		// Register the command
-		dispatcher.register(Commands.literal("daycount")
-				.executes(this::showDayCount)
-				.then(Commands.literal("day")
-						.executes(this::showDayCount))
-				.then(Commands.literal("message")
-						.requires(ServerDayCounterPermissions::canManageMessages)
-						.then(createMessageSubcommand("join", ServerDayCounterUtils.MessageType.JOIN))
-						.then(createMessageSubcommand("new_day", ServerDayCounterUtils.MessageType.NEW_DAY))));
-	}
-
-	private LiteralArgumentBuilder<CommandSourceStack> createMessageSubcommand(String name, ServerDayCounterUtils.MessageType type) {
-		return Commands.literal(name)
-				.executes(context -> showMessageTemplate(context.getSource(), type))
-				.then(Commands.literal("view")
-						.executes(context -> showMessageTemplate(context.getSource(), type)))
-				.then(Commands.literal("set")
-						.then(Commands.argument("message", StringArgumentType.greedyString())
-								.executes(context -> setMessageTemplate(
-										context.getSource(),
-										type,
-										StringArgumentType.getString(context, "message")
-								))))
-				.then(Commands.literal("reset")
-						.executes(context -> resetMessageTemplate(context.getSource(), type)));
-	}
-
-	private int showDayCount(CommandContext<CommandSourceStack> context) {
-		// Send the current day count back to the player/console
-		context.getSource().sendSystemMessage(createCommandFeedback("Current day count: ", Long.toString(dayCount)));
-		return 1;
-	}
-
-	private int showMessageTemplate(CommandSourceStack source, ServerDayCounterUtils.MessageType type) {
-		ServerLevel world = getOverworld(source);
-		if (world == null) {
-			source.sendSystemMessage(Component.literal("The overworld is not available."));
-			return 0;
-		}
-
-		source.sendSystemMessage(createCommandFeedback(
-				getMessageLabel(type) + " template: ",
-				ServerDayCounterUtils.getOrCreateMessage(world, type)
-		));
-		return 1;
-	}
-
-	private int setMessageTemplate(CommandSourceStack source, ServerDayCounterUtils.MessageType type, String message) {
-		ServerLevel world = getOverworld(source);
-		if (world == null) {
-			source.sendSystemMessage(Component.literal("The overworld is not available."));
-			return 0;
-		}
-
-		if (!ServerDayCounterUtils.setMessage(message, world, type)) {
-			source.sendSystemMessage(
-					Component.empty()
-							.append(Component.literal("Message must include ").withStyle(ChatFormatting.RED))
-							.append(Component.literal(ServerDayCounterUtils.DAY_COUNT_PLACEHOLDER).withStyle(ChatFormatting.YELLOW))
-							.append(Component.literal(".").withStyle(ChatFormatting.RED))
-			);
-			return 0;
-		}
-
-		source.sendSystemMessage(createCommandFeedback(getMessageLabel(type) + " template updated: ", message));
-		return 1;
-	}
-
-	private int resetMessageTemplate(CommandSourceStack source, ServerDayCounterUtils.MessageType type) {
-		ServerLevel world = getOverworld(source);
-		if (world == null) {
-			source.sendSystemMessage(Component.literal("The overworld is not available."));
-			return 0;
-		}
-
-		String defaultMessage = ServerDayCounterUtils.getDefaultMessage(type);
-		// Clear any world-specific override so the default from ServerDayCounterUtils is used.
-		ServerDayCounterUtils.setMessage(null, world, type);
-		source.sendSystemMessage(createCommandFeedback(getMessageLabel(type) + " template reset to default: ", defaultMessage));
-		return 1;
-	}
-
-	private ServerLevel getOverworld(CommandSourceStack source) {
-		return source.getServer().overworld();
-	}
-
-	private String getMessageLabel(ServerDayCounterUtils.MessageType type) {
-		return switch (type) {
-			case JOIN -> "Join message";
-			case NEW_DAY -> "New day message";
-		};
-	}
-
-	private Component createCommandFeedback(String label, String value) {
-		return Component.empty()
-				.append(Component.literal(label).withStyle(ChatFormatting.GRAY))
-				.append(Component.literal(value).withStyle(ChatFormatting.YELLOW));
 	}
 }

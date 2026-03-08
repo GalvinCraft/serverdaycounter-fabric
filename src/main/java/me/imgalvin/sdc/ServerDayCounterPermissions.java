@@ -1,6 +1,7 @@
 package me.imgalvin.sdc;
 
 import java.lang.reflect.Method;
+import java.util.Objects;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.permissions.Permissions;
@@ -17,11 +18,7 @@ public final class ServerDayCounterPermissions {
 
     public static boolean canManageMessages(CommandSourceStack source) {
         Boolean fabricPermissionsResult = checkWithFabricPermissionsApi(source);
-        if (fabricPermissionsResult != null) {
-            return fabricPermissionsResult;
-        }
-
-        return source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
+        return Objects.requireNonNullElseGet(fabricPermissionsResult, () -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER));
     }
 
     private static Boolean checkWithFabricPermissionsApi(CommandSourceStack source) {
