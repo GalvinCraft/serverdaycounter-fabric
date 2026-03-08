@@ -1,13 +1,11 @@
 package me.imgalvin.sdc;
 
-import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents ;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -20,6 +18,9 @@ public class ServerDayCounter implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		// Check for stored message data when the server starts
+		ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
+
 		// Register the tick event to update the day count
 		ServerTickEvents.END_SERVER_TICK.register(this::onWorldTick);
 
@@ -31,45 +32,56 @@ public class ServerDayCounter implements ModInitializer {
 			if (!initialized) {
 				return;
 			}
-			player.sendSystemMessage(Component.literal("World day: " + dayCount).withStyle(ChatFormatting.YELLOW), false);
+
+			// Suppress resource warning since we're not actually opening a new world here, just accessing the existing one.
+			@SuppressWarnings("resource")
+			ServerLevel world = player.level().getServer().overworld();
+
+			String template = ServerDayCounterUtils.getMessage(world, ServerDayCounterUtils.MessageType.JOIN);
+			player.sendSystemMessage(
+					Component.literal(ServerDayCounterUtils.formatMessage(template, dayCount)).withStyle(ChatFormatting.YELLOW),
+					false
+			);
 		});
 
 		// Register the command when the mod initializes
-		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> {
-			registerDayCountCommand(dispatcher);
-		});
+		ServerDayCounterCommands commands = new ServerDayCounterCommands(() -> dayCount);
+		CommandRegistrationCallback.EVENT.register((dispatcher, _, _) -> commands.register(dispatcher));
+	}
+
+	private void onServerStarted(MinecraftServer minecraftServer) {
+		// Load the current day count and any stored message templates on startup
+		ServerLevel world = minecraftServer.overworld();
+
+		initializeWorldState(world);
 	}
 
 	private void onWorldTick(MinecraftServer minecraftServer) {
 		// Get world
 		ServerLevel world = minecraftServer.overworld();
 
-		// Get the game time in ticks and calculate the date
-		long gameTime = world.getDefaultClockTime();
-		long newDayCount = gameTime / 24000;
+		// Fallback if startup happened before the overworld was ready
+		if (!initialized) {
+			initializeWorldState(world);
+		}
+
+		// Get the game time in ticks and calculate the day
+		long newDayCount = world.getDefaultClockTime() / 24000;
+		if (newDayCount == dayCount) {
+			return;
+		}
 
 		// Check if it's a new day and send a message to all players
-		if (newDayCount != dayCount && initialized) {
-			dayCount = newDayCount;
-			world.getServer().getPlayerList().broadcastSystemMessage(Component.literal("A new day has begun! Day: " + dayCount).withStyle(ChatFormatting.AQUA), false);
-		}
-
-		// Botch job but this prevents null day count on server start being broadcasted to new players
-		if (!initialized) {
-			dayCount = newDayCount;
-			initialized = true;
-			world.getServer().getPlayerList().broadcastSystemMessage(Component.literal("World day: " + dayCount).withStyle(ChatFormatting.YELLOW), false);
-		}
+		dayCount = newDayCount;
+		String template = ServerDayCounterUtils.getMessage(world, ServerDayCounterUtils.MessageType.NEW_DAY);
+		world.getServer().getPlayerList().broadcastSystemMessage(
+				Component.literal(ServerDayCounterUtils.formatMessage(template, dayCount)).withStyle(ChatFormatting.AQUA),
+				false
+		);
 	}
 
-	private void registerDayCountCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
-		// Register the command
-		dispatcher.register(Commands.literal("daycount")
-				.executes(context -> {
-					// Send the current day count back to the player/console
-					context.getSource().sendSystemMessage(Component.literal("Current day count: " + dayCount));
-					return 1;
-				})
-		);
+	private void initializeWorldState(ServerLevel world) {
+		dayCount = world.getDefaultClockTime() / 24000;
+		initialized = true;
 	}
 }
