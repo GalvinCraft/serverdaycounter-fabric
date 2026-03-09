@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
@@ -15,7 +16,7 @@ public class ServerDayCounterSavedData extends SavedData {
     ).apply(instance, ServerDayCounterSavedData::new));
 
     public static final SavedDataType<ServerDayCounterSavedData> TYPE = new SavedDataType<>(
-            "server_day_counter_messages",
+            Identifier.withDefaultNamespace("server_day_counter_messages"),
             ServerDayCounterSavedData::new,
             CODEC,
             DataFixTypes.SAVED_DATA_COMMAND_STORAGE
