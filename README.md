@@ -18,10 +18,21 @@ Use the `/daycount` command and it'll show you the day count!
 
 ![Usage](https://raw.githubusercontent.com/GalvinCraft/serverdaycounter-fabric/main/.github/assets/java_WapwU09fZk.png)
 
+## Admins
+Commands that can be used for admins are
+* `/daycount message` to set the message templates
+  * `join|new_day` to set the template type
+    * `reset` to reset the template to default
+    * `set` to set the template to a custom one
+      * `<message>` to set the message template. Inverted commas (") are not required, but the %day_count% placeholder is required to show the day count in the message
+    * `view` to view the current template
+
 # Compatible Versions
 All versions from 1.21 and above are supported!
 - 1.0.0 supports all 1.21.x versions
-- 1.0.1 supports 26.1 snapshots for now
+- 1.0.1 supports 26.1 snapshot 4
+- 1.1.0 supports 26.1 snapshot 4 & 5
+- 1.1.1 supports 26.1 snapshots onwards
 
 # Important Note
 This mod is a **server-side** mod! You are **not** required to install this mod on the client-side, unless you are using the "Open to LAN" feature to create a server on your world.
